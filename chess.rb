@@ -1,3 +1,5 @@
+require 'yaml'
+
 class Game
   def initialize
     @board =  Board.new
@@ -18,7 +20,7 @@ class Board
   attr_reader :squares # HERE FOR DEBUGGERY
   def initialize
     @squares = Array.new(8) { Array.new(8) }
-    lay_board#_test #FIX THIS
+    lay_board_test #FIX THIS
   end
 
   def lay_board
@@ -35,8 +37,10 @@ class Board
   end
 
   def lay_board_test
-    @squares[3][4] = Rook.new(:white)
-    @squares[3][1] = Bishop.new(:white)
+    #@squares[7][3] = King.new(:white)
+    @squares[6][3] = Pawn.new(:white)
+    @squares[1][2] = Rook.new(:black)
+   # @squares[1][3].moved = true
   end
 
   def lay_pieces(row, color)
@@ -70,6 +74,7 @@ class Board
   def valid_move?(start_loc, end_loc)
     return false unless get_possible_moves(start_loc).include?(end_loc)
     return false if king_in_check?(start_loc, end_loc)
+
     true
   end
 
@@ -78,9 +83,71 @@ class Board
     piece.moves(@squares, start_loc)
   end
 
-  def king_in_check?
+  def king_in_check?(start_loc, end_loc)
+    dup_board = self.dup
 
+    piece = dup_board.squares[start_loc[0]][start_loc[1]]
+
+    our_king = dup_board.locate_king(piece.color)
+
+    if piece.color == :white
+      opponent_color = :black
+    else
+      opponent_color = :white
+    end
+
+    dup_board.update(start_loc, end_loc)
+
+    # dup_board.squares[end_loc[0]][end_loc[1]] = Rook.new(:white) ##FIIIIX
+    # dup_board.squares[start_loc[0]][start_loc[1]] = nil
+
+    # dup_board.display
+
+    opponent_pieces = dup_board.locate_pieces(opponent_color)
+
+    opponent_pieces.each do |opponent_piece, opponent_location|
+      # p opponent_piece.moves(dup_board.squares, opponent_location)
+      if opponent_piece.moves(dup_board.squares, opponent_location).include?(our_king.values.flatten)
+        return true
+      end
+    end
+    false
   end
+
+  def locate_pieces(color)
+    pieces = {}
+    @squares.each_with_index do |row, row_idx|
+      row.each_with_index do |square, square_idx|
+        if square.is_a?(Piece) && square.color == color
+          pieces[square] =[row_idx, square_idx]
+        end
+      end
+    end
+    pieces
+  end
+
+  def locate_king(color)
+    @squares.each_with_index do |row, row_idx|
+      row.each_with_index  do |square, square_idx|
+        if square.is_a?(King) && square.color == color
+          #p "Before return"
+          return {square => [row_idx, square_idx]}
+        end
+      end
+    end
+    nil
+  end
+
+  def dup
+    serialized_board = self.to_yaml
+    YAML::load(serialized_board)
+  end
+
+  def update(start_loc, end_loc)
+    @squares[end_loc[0]][end_loc[1]] = @squares[start_loc[0]][start_loc[1]]
+    @squares[start_loc[0]][start_loc[1]] = nil
+  end
+
   #game_over?
     #call checkmate?
   #checkmate?
@@ -105,129 +172,49 @@ class Piece
     @move_dir = self.get_move_dir# e.g. horizontal, diagonal, vertical
     @char = self.get_char(color)
   end
+
+  def took_piece?(board, temp_loc)
+    square_to_check = board[temp_loc[0]][temp_loc[1]]
+    if square_to_check.is_a?(Piece) && square_to_check.color != self.color
+      return true
+    end
+    false
+  end
+
+  def blocked?(board, temp_loc)
+    square_to_check = board[temp_loc[0]][temp_loc[1]]
+    if square_to_check.is_a?(Piece) && square_to_check.color == self.color
+      return true
+    end
+    false
+  end
+
+  def off_board?(temp_loc)
+    return true if temp_loc[0] > 7
+    return true if temp_loc[0] < 0
+    return true if temp_loc[1] > 7
+    return true if temp_loc[1] < 0
+    false
+  end
+
 end
 
 class SlidingPiece < Piece
   def moves(board, start_loc)
-    #creates array of positions to slide to based on board and move_dir
-    # move_dir[0]
-    moves = []
-    case @move_dir[0]
-    when :orthogonal
-      transposed_board = board.transpose
-      transposed_row = transposed_board[start_loc[1]]
-      row = board[start_loc[0]]
-      p transposed_row
-      moves += get_north_moves(transposed_row, start_loc)
-      moves += get_south_moves(transposed_row, start_loc)
-      moves += get_east_moves(row, start_loc)
-      moves += get_west_moves(row, start_loc)
-    when :diagonal
-      moves << get_nw_moves(board, start_loc)
-      moves << get_ne_moves(board, start_loc)
-      moves << get_sw_moves(board, start_loc)
-      moves << get_se_moves(board, start_loc)
-    end
-    moves
-  end
-
-  def get_north_moves(row, start_loc)
-    start_loc = start_loc.reverse
-    sub_row = []
     moves = []
 
-    row.each do |square|
-      break if square == self
-      sub_row << square
-    end
+    @move_dir.each do |vector|
+      temp_loc = start_loc.dup
+      while true
+        temp_loc[1] = temp_loc[1] + vector[1]
+        temp_loc[0] = temp_loc[0] + vector[0]
 
-   stepper = 1
-    sub_row.reverse_each do |square_in_row|
-      break if (start_loc[1] - stepper) < 0
-      if square_in_row.is_a?(Piece)
-        if square_in_row.color == self.color
-          break
-        else
-          moves << [start_loc[0], (start_loc[1] - stepper)].reverse
-        end
-      else
-        moves << [start_loc[0], (start_loc[1] - stepper)].reverse
-        break
+        break if off_board?(temp_loc)
+        break if blocked?(board, temp_loc)
+
+        moves << temp_loc.dup
+        break if took_piece?(board, temp_loc)
       end
-      stepper += 1
-    end
-    moves
-  end
-
-  def get_south_moves(row, start_loc)
-    start_loc = start_loc.reverse
-    moves = []
-    stepper = 1
-    row.each_with_index do |square_in_row, idx|
-      next if start_loc[1] >= idx
-      break if (start_loc[1] + stepper) > 7
-      if square_in_row.is_a?(Piece)
-        if square_in_row.color == self.color
-          break
-        else
-          moves << [start_loc[0], (start_loc[1] + stepper)].reverse
-          break
-        end
-      else
-        moves << [start_loc[0], (start_loc[1] + stepper)].reverse
-      end
-      stepper += 1
-    end
-    moves
-  end
-
-
-  def get_east_moves(row, start_loc)
-    moves = []
-    stepper = 1
-    row.each_with_index do |square_in_row, idx|
-      next if start_loc[1] >= idx
-      break if (start_loc[1] + stepper) > 7
-      if square_in_row.is_a?(Piece)
-        p square_in_row.color
-        p "Our color: #{self.color}"
-        if square_in_row.color == self.color
-          break
-        else
-          moves << [start_loc[0], (start_loc[1] + stepper)]
-          break
-        end
-      else
-        moves << [start_loc[0], (start_loc[1] + stepper)]
-      end
-      stepper += 1
-    end
-    moves
-  end
-
-  def get_west_moves(row, start_loc)
-    sub_row = []
-    moves = []
-
-    row.each do |square|
-      break if square == self
-      sub_row << square
-    end
-
-   stepper = 1
-    sub_row.reverse_each do |square_in_row|
-      break if (start_loc[1] - stepper) < 0
-      if square_in_row.is_a?(Piece)
-        if square_in_row.color == self.color
-          break
-        else
-          moves << [start_loc[0], (start_loc[1] - stepper)]
-          break
-        end
-      else
-        moves << [start_loc[0], (start_loc[1] - stepper)]
-      end
-      stepper += 1
     end
     moves
   end
@@ -236,8 +223,28 @@ end
 
 class SteppingPiece < Piece
   def moves(board, start_loc)
+    moves = []
+
+    @move_dir.each do |vector|
+      temp_loc = start_loc.dup
+      temp_loc[1] = temp_loc[1] + vector[1]
+      temp_loc[0] = temp_loc[0] + vector[0]
+
+      next if off_board?(temp_loc)
+      next if blocked?(board, temp_loc)
+
+      moves << temp_loc.dup
+    end
+    moves
   end
+
 end
+
+
+# PWNed by PAWN
+# moves -> opponent_diagonal (returns true or false)
+# moves then calls get_move_dir (passess opponent_diagonal)
+# move_dirs creates array of moves (including *both* diagonals if opponent_diagonal)
 
 class Pawn < Piece
   attr_accessor :moved
@@ -248,16 +255,128 @@ class Pawn < Piece
     @move_dir = get_move_dir(false)
   end
 
-  def get_move_dir(opponent_diagonal)
-    move_dir = []
-    if @moved
-      move_dir = [1, 0]
+  def moves(board, start_loc)
+    moves = []
+    opponent_diag = opponent_diagonal(board, start_loc)
+
+    @move_dir = get_move_dir(opponent_diag)
+
+    @move_dir.each do |vector|
+      temp_loc = start_loc.dup
+      temp_loc[1] = temp_loc[1] + vector[1]
+      temp_loc[0] = temp_loc[0] + vector[0]
+
+      next if off_board?(temp_loc)
+
+      break if blocked?(board, temp_loc)
+
+      moves << temp_loc.dup
+    end
+    moves
+  end
+
+  def find_location(board)
+    board.each_with_index do |row, row_idx|
+      row.each_with_index do |square, square_idx|
+        return [row_idx, square_idx] if square == self
+      end
+    end
+    nil
+  end
+
+  def opponent_diagonal(board, start_loc)
+
+    if @color == :black
+      square_to_left = board[start_loc[0] + 1][start_loc[1] + 1]
+      square_to_right = board[start_loc[0] + 1][start_loc[1] - 1]
     else
-      move_dir = [[2, 0], [1, 0]]
+      square_to_left = board[start_loc[0] - 1][start_loc[1] + 1]
+      square_to_right = board[start_loc[0] - 1][start_loc[1] - 1]
     end
-    if opponent_diagonal
-      move_dir << [[1, 1], [1, -1]]
+
+    if square_to_left.is_a?(Piece) && square_to_left.color != @color
+      return {true => :left}
     end
+    if square_to_right.is_a?(Piece) && square_to_right.color != @color
+      return {true => :right}
+    end
+
+    nil
+  end
+
+  def blocked?(board, temp_loc)
+    my_loc = find_location(board)
+    is_diag = false
+    if @color == :black
+      if my_loc[0] + 1 == temp_loc[0] && my_loc[1] + 1 == temp_loc[1]
+        is_diag = true
+      end
+      if my_loc[0] + 1 == temp_loc[0] && my_loc[1] - 1 == temp_loc[1]
+        is_diag = true
+      end
+    else
+      if my_loc[0] - 1 == temp_loc[0] && my_loc[1] + 1 == temp_loc[1]
+        is_diag = true
+      end
+      if my_loc[0] - 1 == temp_loc[0] && my_loc[1] - 1 == temp_loc[1]
+        is_diag = true
+      end
+    end
+
+
+    # somehow find caller's position
+    # compare caller position with temp_loc
+    # if [1, 1] or [1, -1] for black or [-1, 1] & [-1, -1] for white, temp_loc is diagonal.
+    # see what color is on temp_loc
+    # if different color, not blocked
+    square_to_check = board[temp_loc[0]][temp_loc[1]]
+    if is_diag
+      if square_to_check.is_a?(Piece) && square_to_check.color == @color
+        return true
+      end
+    else
+      if square_to_check.is_a?(Piece)
+        return true
+      end
+    end
+    false
+  end
+
+  def get_move_dir(opponent_diag)
+    move_dir = []
+
+    if opponent_diag
+      if @color == :black
+        if opponent_diag[true] == :left
+          move_dir << [1, 1]
+        else
+          move_dir << [1, -1]
+        end
+      else
+        if opponent_diag[true] == :left
+          move_dir << [-1, 1]
+        else
+          move_dir << [-1, -1]
+        end
+      end
+    end
+
+    if @moved
+      if @color == :black
+      move_dir << [1, 0]
+      else
+        move_dir << [-1, 0]
+      end
+    else
+      if @color == :black
+        move_dir << [1, 0]
+        move_dir << [2, 0]
+      else
+        move_dir << [-1, 0]
+        move_dir << [-2, 0]
+      end
+    end
+
     move_dir
   end
 
@@ -270,7 +389,7 @@ end
 
 class Queen < SlidingPiece
   def get_move_dir
-    @move_dir = [:diagonal, :orthogonal]
+    @move_dir = [[0, 1], [1, 1], [1, 0], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]
   end
 
   def get_char(color)
@@ -281,7 +400,7 @@ end
 
 class Bishop < SlidingPiece
   def get_move_dir
-    @move_dir = [:diagonal]
+    @move_dir = [[1, 1], [-1, 1], [-1, -1], [1, -1]]
   end
 
   def get_char(color)
@@ -293,7 +412,7 @@ end
 
 class Rook < SlidingPiece
   def get_move_dir
-    @move_dir = [:orthogonal]
+    @move_dir = [[0, 1], [1, 0], [-1, 0], [0, -1]]
   end
 
   def get_char(color)
@@ -327,8 +446,10 @@ class Knight < SteppingPiece
 end
 
 test_board = Board.new
+
 test_board.display
-#p test_board.get_possible_moves([3, 4])
+p test_board.get_possible_moves([6, 3])
+
 
 
 #get move
