@@ -20,7 +20,7 @@ class Board
   attr_reader :squares # HERE FOR DEBUGGERY
   def initialize
     @squares = Array.new(8) { Array.new(8) }
-    lay_board_test #FIX THIS
+    lay_board#_test #FIX THIS
   end
 
   def lay_board
@@ -37,9 +37,9 @@ class Board
   end
 
   def lay_board_test
-    #@squares[7][3] = King.new(:white)
-    @squares[6][3] = Pawn.new(:white)
-    @squares[1][2] = Rook.new(:black)
+    @squares[7][3] = King.new(:white)
+    @squares[6][3] = Rook.new(:white)
+    @squares[5][3] = Rook.new(:black)
    # @squares[1][3].moved = true
   end
 
@@ -47,8 +47,8 @@ class Board
     @squares[row][0] = Rook.new(color)
     @squares[row][1] = Knight.new(color)
     @squares[row][2] = Bishop.new(color)
-    @squares[row][3] = King.new(color)
-    @squares[row][4] = Queen.new(color)
+    @squares[row][3] = Queen.new(color)
+    @squares[row][4] = King.new(color)
     @squares[row][5] = Bishop.new(color)
     @squares[row][6] = Knight.new(color)
     @squares[row][7] = Rook.new(color)
@@ -59,8 +59,6 @@ class Board
       display = ""
       row.each do |square|
         if square.is_a?(Piece)
-          #p square
-          #p square.get_char(square.color)
           display += square.get_char(square.color)
           display += "   "
         else
@@ -73,8 +71,9 @@ class Board
 
   def valid_move?(start_loc, end_loc)
     return false unless get_possible_moves(start_loc).include?(end_loc)
-    return false if king_in_check?(start_loc, end_loc)
-
+    p "Passed possible moves"
+    return false if own_king_in_check?(start_loc, end_loc)
+    p "Passed king in check"
     true
   end
 
@@ -83,34 +82,15 @@ class Board
     piece.moves(@squares, start_loc)
   end
 
-  def king_in_check?(start_loc, end_loc)
+  def own_king_in_check?(start_loc, end_loc)
     dup_board = self.dup
 
     piece = dup_board.squares[start_loc[0]][start_loc[1]]
 
-    our_king = dup_board.locate_king(piece.color)
-
-    if piece.color == :white
-      opponent_color = :black
-    else
-      opponent_color = :white
+    if dup_board.check?(piece.color)
+      return true
     end
 
-    dup_board.update(start_loc, end_loc)
-
-    # dup_board.squares[end_loc[0]][end_loc[1]] = Rook.new(:white) ##FIIIIX
-    # dup_board.squares[start_loc[0]][start_loc[1]] = nil
-
-    # dup_board.display
-
-    opponent_pieces = dup_board.locate_pieces(opponent_color)
-
-    opponent_pieces.each do |opponent_piece, opponent_location|
-      # p opponent_piece.moves(dup_board.squares, opponent_location)
-      if opponent_piece.moves(dup_board.squares, opponent_location).include?(our_king.values.flatten)
-        return true
-      end
-    end
     false
   end
 
@@ -144,9 +124,49 @@ class Board
   end
 
   def update(start_loc, end_loc)
-    @squares[end_loc[0]][end_loc[1]] = @squares[start_loc[0]][start_loc[1]]
-    @squares[start_loc[0]][start_loc[1]] = nil
+    if valid_move?(start_loc, end_loc)
+      @squares[end_loc[0]][end_loc[1]] = @squares[start_loc[0]][start_loc[1]]
+      @squares[start_loc[0]][start_loc[1]] = nil
+    end
   end
+
+  def check?(color)
+    our_king = locate_king(color)
+
+     if color == :white
+       opponent_color = :black
+     else
+       opponent_color = :white
+     end
+
+     opponent_pieces = locate_pieces(opponent_color)
+     #p opponent_pieces
+
+     opponent_pieces.each do |opponent_piece, opponent_location|
+       if opponent_piece.moves(@squares, opponent_location).include?(our_king.values.flatten)
+         return true
+       end
+     end
+   false
+  end
+
+  def checkmate?(color)
+    if !check?(color)
+      return false
+    else
+      our_pieces = locate_pieces(color)
+
+      our_pieces.each do |piece, location|
+        piece.moves(@squares,).each do |piece_move|
+          if valid_move?(location, piece_move)
+            return false
+          end
+        end
+      end
+    end
+    true
+  end
+
 
   #game_over?
     #call checkmate?
@@ -169,7 +189,7 @@ class Piece
 
   def initialize(color)
     @color = color
-    @move_dir = self.get_move_dir# e.g. horizontal, diagonal, vertical
+    @move_dir = self.get_move_dir
     @char = self.get_char(color)
   end
 
@@ -240,11 +260,6 @@ class SteppingPiece < Piece
 
 end
 
-
-# PWNed by PAWN
-# moves -> opponent_diagonal (returns true or false)
-# moves then calls get_move_dir (passess opponent_diagonal)
-# move_dirs creates array of moves (including *both* diagonals if opponent_diagonal)
 
 class Pawn < Piece
   attr_accessor :moved
@@ -323,12 +338,6 @@ class Pawn < Piece
       end
     end
 
-
-    # somehow find caller's position
-    # compare caller position with temp_loc
-    # if [1, 1] or [1, -1] for black or [-1, 1] & [-1, -1] for white, temp_loc is diagonal.
-    # see what color is on temp_loc
-    # if different color, not blocked
     square_to_check = board[temp_loc[0]][temp_loc[1]]
     if is_diag
       if square_to_check.is_a?(Piece) && square_to_check.color == @color
@@ -447,10 +456,29 @@ end
 
 test_board = Board.new
 
+  test_board.display
+#  p test_board.valid_move?
+p test_board.update([6, 5], [5, 5])
+puts
+puts
+puts
 test_board.display
-p test_board.get_possible_moves([6, 3])
-
-
+p test_board.update([1, 4], [3, 4])
+puts
+puts
+puts
+test_board.display
+p test_board.update([6, 6], [4, 6])
+puts
+puts
+puts
+test_board.display
+p test_board.update([0, 3], [4, 7])
+puts
+puts
+puts
+test_board.display
+p test_board.checkmate?(:white)
 
 #get move
 #first position should contain piece of own color
