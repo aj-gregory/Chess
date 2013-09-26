@@ -1,7 +1,7 @@
 require 'yaml'
 
 class Board
-  attr_reader :squares # HERE FOR DEBUGGERY
+
   def initialize
     @squares = Array.new(8) { Array.new(8) }
     lay_board#_test #FIX THIS
@@ -18,13 +18,6 @@ class Board
 
     lay_pieces(0, :black)
     lay_pieces(7, :white)
-  end
-
-  def lay_board_test
-    @squares[7][3] = King.new(:white)
-    @squares[6][3] = Rook.new(:white)
-    @squares[5][3] = Rook.new(:black)
-   # @squares[1][3].moved = true
   end
 
   def lay_pieces(row, color)
@@ -60,14 +53,14 @@ class Board
   end
 
   def get_possible_moves(start_loc)
-    piece = @squares[start_loc[0]][start_loc[1]]
+    piece = find_piece(start_loc)
     piece.moves(@squares, start_loc)
   end
 
   def own_king_in_check?(start_loc, end_loc)
     dup_board = self.dup
 
-    piece = dup_board.squares[start_loc[0]][start_loc[1]]
+    piece = dup_board.find_piece(start_loc)
 
     if dup_board.check?(piece.color)
       return true
@@ -92,7 +85,6 @@ class Board
     @squares.each_with_index do |row, row_idx|
       row.each_with_index  do |square, square_idx|
         if square.is_a?(King) && square.color == color
-          #p "Before return"
           return {square => [row_idx, square_idx]}
         end
       end
@@ -106,11 +98,11 @@ class Board
   end
 
   def update(start_loc, end_loc, turn)
-    if @squares[start_loc[0]][start_loc[1]].color != turn
+    if find_piece(start_loc).color != turn
       raise "Not your piece"
     end
     if valid_move?(start_loc, end_loc)
-      @squares[end_loc[0]][end_loc[1]] = @squares[start_loc[0]][start_loc[1]]
+      @squares[end_loc[0]][end_loc[1]] = find_piece(start_loc)
       @squares[start_loc[0]][start_loc[1]] = nil
     else
       raise "Invalid move"
@@ -127,7 +119,6 @@ class Board
      end
 
      opponent_pieces = locate_pieces(opponent_color)
-     #p opponent_pieces
 
      opponent_pieces.each do |opponent_piece, opponent_location|
        if opponent_piece.moves(@squares, opponent_location).include?(our_king.values.flatten)
@@ -157,6 +148,15 @@ class Board
 
   def game_over?
     return true if checkmate?(:white) || checkmate?(:black)
+  end
+
+  def find_piece(location)
+    @squares.each_with_index do |row, row_idx|
+      row.each_with_index do |square, square_idx|
+        return square if row_idx == location[0] && square_idx == location[1]
+      end
+    end
+    nil
   end
 
 end

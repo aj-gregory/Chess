@@ -12,11 +12,13 @@ class Game
       @turn = :white
       @board.display
       play_turn
+      break if @board.game_over?
       puts "Black turn: "
       @turn = :black
       @board.display
       play_turn
     end
+    puts "Checkmate! #{@turn.to_s.capitalize} wins!"
   end
 
   def play_turn
