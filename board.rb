@@ -105,10 +105,15 @@ class Board
     YAML::load(serialized_board)
   end
 
-  def update(start_loc, end_loc)
+  def update(start_loc, end_loc, turn)
+    if @squares[start_loc[0]][start_loc[1]].color != turn
+      raise "Not your piece"
+    end
     if valid_move?(start_loc, end_loc)
       @squares[end_loc[0]][end_loc[1]] = @squares[start_loc[0]][start_loc[1]]
       @squares[start_loc[0]][start_loc[1]] = nil
+    else
+      raise "Invalid move"
     end
   end
 
