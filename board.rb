@@ -43,7 +43,7 @@ class Board
           display += square.get_char(square.color)
           display += "   "
         else
-          display += "_   "
+          display += "-   "
         end
       end
       puts display.encode('utf-8')
