@@ -45,38 +45,3 @@ end
 
 test_game= Game.new
 test_game.play_game
-
- #  test_board.display
-# #  p test_board.valid_move?
-# p test_board.update([6, 5], [5, 5])
-# puts
-# puts
-# puts
-# test_board.display
-# p test_board.update([1, 4], [3, 4])
-# puts
-# puts
-# puts
-# test_board.display
-# p test_board.update([6, 6], [4, 6])
-# puts
-# puts
-# puts
-# test_board.display
-# p test_board.update([0, 3], [4, 7])
-# puts
-# puts
-# puts
-# test_board.display
-# p test_board.checkmate?(:white)
-
-#get move
-#first position should contain piece of own color
-#check for kind of piece
-#can piece move to position2?
-  #check how piece moves
-  #generate potential move position (array of spots on board)
-  #iterate trough possible spot array, make sure position2 is in array
-  #check validity of move (does it put king in check?)
-#move piece
-  #update location of piece on board (contain this in Board class)
