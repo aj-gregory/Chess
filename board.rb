@@ -32,7 +32,11 @@ class Board
   end
 
   def display
-    @squares.each do |row|
+    print "   "
+    0.upto(7) {|num| print "#{num}   "}
+    puts
+    @squares.each_with_index do |row, idx|
+      print " #{idx} "
       display = ""
       row.each do |square|
         if square.is_a?(Piece)
@@ -98,6 +102,9 @@ class Board
   end
 
   def update(start_loc, end_loc, turn)
+    if find_piece(start_loc).nil?
+      raise "No piece there"
+    end
     if find_piece(start_loc).color != turn
       raise "Not your piece"
     end
